@@ -1,0 +1,19 @@
+{
+  "name": "flag-ops",
+  "version": "0.1.0",
+  "author": {
+    "name": "mturac"
+  },
+  "description": "Manages feature flags across environments, visualizes rollout status, and prevents orphaned flags from accumulating technical debt.",
+  "skills": [
+    "skills/flag-scan",
+    "skills/flag-cleanup",
+    "skills/flag-rollout"
+  ],
+  "commands": [
+    "commands/flag-ops.md",
+    "commands/flag-ops-scan.md",
+    "commands/flag-ops-cleanup.md",
+    "commands/flag-ops-rollout.md"
+  ]
+}

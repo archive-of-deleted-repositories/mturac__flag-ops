@@ -1,0 +1,189 @@
+name: flag-ops CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  validate-plugin:
+    name: Validate plugin structure
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Validate plugin.json schema
+        run: |
+          node - <<'EOF'
+          const fs = require('fs');
+          const path = require('path');
+
+          const pluginPath = path.join('.claude-plugin', 'plugin.json');
+          if (!fs.existsSync(pluginPath)) {
+            console.error('ERROR: .claude-plugin/plugin.json not found');
+            process.exit(1);
+          }
+
+          let plugin;
+          try {
+            plugin = JSON.parse(fs.readFileSync(pluginPath, 'utf8'));
+          } catch (e) {
+            console.error('ERROR: plugin.json is not valid JSON:', e.message);
+            process.exit(1);
+          }
+
+          const required = ['name', 'version', 'author', 'skills', 'commands'];
+          for (const field of required) {
+            if (!plugin[field]) {
+              console.error(`ERROR: plugin.json missing required field: ${field}`);
+              process.exit(1);
+            }
+          }
+
+          if (!Array.isArray(plugin.skills) || plugin.skills.length === 0) {
+            console.error('ERROR: plugin.json "skills" must be a non-empty array');
+            process.exit(1);
+          }
+
+          if (!Array.isArray(plugin.commands) || plugin.commands.length === 0) {
+            console.error('ERROR: plugin.json "commands" must be a non-empty array');
+            process.exit(1);
+          }
+
+          console.log('plugin.json OK:', plugin.name, plugin.version);
+          EOF
+
+      - name: Validate marketplace.json schema
+        run: |
+          node - <<'EOF'
+          const fs = require('fs');
+          const path = require('path');
+
+          const mktPath = path.join('.claude-plugin', 'marketplace.json');
+          if (!fs.existsSync(mktPath)) {
+            console.error('ERROR: .claude-plugin/marketplace.json not found');
+            process.exit(1);
+          }
+
+          let mkt;
+          try {
+            mkt = JSON.parse(fs.readFileSync(mktPath, 'utf8'));
+          } catch (e) {
+            console.error('ERROR: marketplace.json is not valid JSON:', e.message);
+            process.exit(1);
+          }
+
+          if (!Array.isArray(mkt.keywords) || mkt.keywords.length === 0) {
+            console.error('ERROR: marketplace.json "keywords" must be a non-empty array');
+            process.exit(1);
+          }
+
+          console.log('marketplace.json OK:', mkt.keywords.join(', '));
+          EOF
+
+      - name: Check all skill SKILL.md files exist and have frontmatter
+        run: |
+          node - <<'EOF'
+          const fs = require('fs');
+          const path = require('path');
+
+          const plugin = JSON.parse(fs.readFileSync('.claude-plugin/plugin.json', 'utf8'));
+          let errors = 0;
+
+          for (const skill of plugin.skills) {
+            const skillPath = path.normalize(path.join('.claude-plugin', skill.path));
+            if (!fs.existsSync(skillPath)) {
+              console.error(`ERROR: Skill file not found: ${skillPath}`);
+              errors++;
+              continue;
+            }
+
+            const content = fs.readFileSync(skillPath, 'utf8');
+            if (!content.startsWith('---')) {
+              console.error(`ERROR: ${skillPath} is missing YAML frontmatter (must start with ---)`);
+              errors++;
+              continue;
+            }
+
+            const closingFrontmatter = content.indexOf('---', 3);
+            if (closingFrontmatter === -1) {
+              console.error(`ERROR: ${skillPath} frontmatter is not closed`);
+              errors++;
+              continue;
+            }
+
+            console.log(`OK: ${skillPath}`);
+          }
+
+          if (errors > 0) {
+            process.exit(1);
+          }
+          EOF
+
+      - name: Check all command files exist and have content
+        run: |
+          node - <<'EOF'
+          const fs = require('fs');
+          const path = require('path');
+
+          const plugin = JSON.parse(fs.readFileSync('.claude-plugin/plugin.json', 'utf8'));
+          let errors = 0;
+
+          for (const cmd of plugin.commands) {
+            const cmdPath = path.normalize(path.join('.claude-plugin', cmd.path));
+            if (!fs.existsSync(cmdPath)) {
+              console.error(`ERROR: Command file not found: ${cmdPath}`);
+              errors++;
+              continue;
+            }
+
+            const content = fs.readFileSync(cmdPath, 'utf8').trim();
+            if (content.length < 50) {
+              console.error(`ERROR: ${cmdPath} appears to be empty or too short (${content.length} chars)`);
+              errors++;
+              continue;
+            }
+
+            if (!content.startsWith('# /')) {
+              console.error(`ERROR: ${cmdPath} should start with a heading like "# /command-name"`);
+              errors++;
+              continue;
+            }
+
+            console.log(`OK: ${cmdPath}`);
+          }
+
+          if (errors > 0) {
+            process.exit(1);
+          }
+          EOF
+
+      - name: Verify plugin name matches between plugin.json and marketplace.json
+        run: |
+          node - <<'EOF'
+          const fs = require('fs');
+          const plugin = JSON.parse(fs.readFileSync('.claude-plugin/plugin.json', 'utf8'));
+          const mkt = JSON.parse(fs.readFileSync('.claude-plugin/marketplace.json', 'utf8'));
+
+          if (plugin.name !== mkt.name) {
+            console.error(`ERROR: name mismatch — plugin.json has "${plugin.name}", marketplace.json has "${mkt.name}"`);
+            process.exit(1);
+          }
+
+          if (plugin.version !== mkt.version) {
+            console.error(`ERROR: version mismatch — plugin.json has "${plugin.version}", marketplace.json has "${mkt.version}"`);
+            process.exit(1);
+          }
+
+          console.log(`OK: name and version consistent (${plugin.name} v${plugin.version})`);
+          EOF
+
+      - name: Summary
+        run: echo "All plugin validation checks passed."

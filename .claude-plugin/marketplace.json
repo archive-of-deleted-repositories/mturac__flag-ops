@@ -1,0 +1,27 @@
+{
+  "name": "flag-ops",
+  "version": "0.1.0",
+  "author": "mturac",
+  "description": "Manages feature flags across environments, visualizes rollout status, and prevents orphaned flags from accumulating technical debt.",
+  "keywords": [
+    "feature-flags",
+    "flags",
+    "rollout",
+    "technical-debt",
+    "cleanup"
+  ],
+  "license": "MIT",
+  "repository": "",
+  "homepage": "",
+  "engines": {
+    "claude-code": ">=1.0.0"
+  },
+  "categories": [
+    "developer-tools",
+    "code-quality",
+    "devops"
+  ],
+  "install": {
+    "command": "claude plugin install flag-ops"
+  }
+}
